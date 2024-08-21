@@ -14,6 +14,8 @@ alias scale = 3
 
 def main():
     seed()
+
+    # initialize sdl and sub-systems (used for rendering and event handling)
     sdl = SDL(video=True, events=True)
     clock = Clock(sdl, 100)
     mouse = Mouse(sdl)
@@ -24,6 +26,7 @@ def main():
     cursor_size = 1
     running = True
 
+    # main game loop
     while running:
         event_list = sdl.event_list()
         for event in event_list:
@@ -39,6 +42,7 @@ def main():
         mouse_x = mouse.get_position()[0] // scale
         mouse_y = mouse.get_position()[1] // scale
 
+        # spawn particles at cursor position
         if mouse.get_buttons() & 1:
             for x in range(max(mouse_x - cursor_size, 0), min(mouse_x + cursor_size + 1, field.width)):
                 for y in range(max(mouse_y - cursor_size, 0), min(mouse_y + cursor_size + 1, field.height)):
@@ -59,18 +63,21 @@ def main():
 
 fn update(inout field: Field, inout rnd: Int):
     
+    # is the cell empty
     @parameter
     fn empty(x: Int, y: Int) -> Bool:
         if 0 <= x < field.width and 0 <= y < field.height:
             return field[x, y].type == 0
         return False
 
+    # is the particle at (x, y) less dense than p
     @parameter
     fn thinner(p: Particle, x: Int, y: Int) -> Bool:
         if 0 <= x < field.width and 0 <= y < field.height:
             return field[x, y].type < p.type
         return False
 
+    # swap particles
     @parameter
     fn swap(x1: Int, y1: Int, x2: Int, y2: Int):
         var p1 = field[x1, y1]
@@ -79,6 +86,7 @@ fn update(inout field: Field, inout rnd: Int):
         field[x1, y1] = p2
         field[x2, y2] = p1
 
+    # random number generator
     @parameter
     fn rand() -> Int:
         rnd = (rnd ^ 61) ^ (rnd >> 16)
@@ -88,10 +96,12 @@ fn update(inout field: Field, inout rnd: Int):
         rnd = rnd ^ (rnd >> 15)
         return rnd
 
+    # randomly returns either 1 or -1
     @parameter
     fn sign() -> Int:
         return ((rand() % 2) * 2) - 1
 
+    # randomly returns either 2, 1, 0, -1 or -2
     @parameter
     fn dir() -> Int:
         return (rand() % 5) - 2
