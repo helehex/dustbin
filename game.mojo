@@ -58,7 +58,7 @@ def main():
             for x in range(max(mouse_x - cursor_size, 0), min(mouse_x + cursor_size + 1, field.width)):
                 for y in range(max(mouse_y - cursor_size, 0), min(mouse_y + cursor_size + 1, field.height)):
                     field[x, y] = selected(not field.skip)
-        if mouse.get_buttons() & 2:
+        elif mouse.get_buttons() & 2:
             for x in range(max(mouse_x - cursor_size, 0), min(mouse_x + cursor_size + 1, field.width)):
                 for y in range(max(mouse_y - cursor_size, 0), min(mouse_y + cursor_size + 1, field.height)):
                     field[x, y] = space(not field.skip)
@@ -71,11 +71,11 @@ def main():
         update(field, rnd)
 
         # draw field
-        draw(field, tex, renderer, mouse)
+        draw(field, tex, renderer)
 
         # draw cursor
         renderer.set_color(Color(255, 255, 255, 0))
-        renderer.set_blendmode(BlendMode(BlendMode.MUL))
+        renderer.set_blendmode(BlendMode.MUL)
         renderer.draw_rect(Rect(mouse.get_position()[0] - cursor_size*scale, mouse.get_position()[1] - cursor_size*scale, cursor_size*scale*2, cursor_size*scale*2))
         renderer.present()
 
@@ -175,15 +175,18 @@ fn update(inout field: Field, inout rnd: Int):
                 var xo = int(field[x, y].data) or dir()
                 # var xo = dir()
 
-                if denser(particle, x + xo, y):
-                    field[x, y].data = xo
-                    swap(x, y, x + xo, y)
-                elif denser(particle, x + xo, y + 1):
+                if denser(particle, x + xo, y + 1):
                     field[x, y].data = xo
                     field[x, y].r = 80
                     field[x, y].g = 140
                     field[x, y].b = 230
                     swap(x, y, x + xo, y + 1)
+                elif denser(particle, x + xo, y):
+                    field[x, y].data = xo
+                    field[x, y].r = 120
+                    field[x, y].g = 180
+                    field[x, y].b = 230
+                    swap(x, y, x + xo, y)
                 else:
                     field[x, y].data = 0
                     field[x, y].r = 40
@@ -242,7 +245,7 @@ fn update(inout field: Field, inout rnd: Int):
     field.skip = not field.skip
 
 
-fn draw(field: Field, tex: Texture, renderer: Renderer, mouse: Mouse) raises:
+fn draw(field: Field, tex: Texture, renderer: Renderer) raises:
     alias clear_color = Color(255, 8, 10, 14)
     var pixels = tex.lock(Rect(0, 0, width, height))._ptr.bitcast[Color]()
     var idx = 0
@@ -254,7 +257,7 @@ fn draw(field: Field, tex: Texture, renderer: Renderer, mouse: Mouse) raises:
             if particle.type == 0:
                 pixels[idx] = clear_color
             else:
-                pixels[idx] = Color(0, particle.b, particle.g, particle.r)
+                pixels[idx] = Color(255, particle.b, particle.g, particle.r)
             idx += 1
 
     tex.unlock()
