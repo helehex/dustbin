@@ -13,3 +13,5 @@ You can find the sdl-bindings package used for rendering [here](https://github.c
 - Right click to place fire
 - Middle click to erase
 - Scroll wheel to change placement size
+- Plus and Minus to zoom camera
+- W A S D to move camera
