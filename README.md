@@ -2,6 +2,9 @@
 
 A falling sand game demo, written in Mojo.
 
+Currently, Dustbin uses the latest Mojo nightly version:  
+`mojo 2024.8.2605 (4cde25da)`.
+
 To run dustbin, you need to have sdl installed:  
 `sudo apt install libsdl2-dev`
 
