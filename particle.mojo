@@ -30,6 +30,10 @@ fn sand(skip: Bool) -> Particle:
     return Particle(skip, 5, 0, random_ui64(180, 200).cast[DType.uint8](), random_ui64(160, 180).cast[DType.uint8](), 60)
 
 
+fn stone(skip: Bool) -> Particle:
+    return Particle(skip, 6, 0, random_ui64(100, 120).cast[DType.uint8](), random_ui64(100, 120).cast[DType.uint8](), random_ui64(100, 120).cast[DType.uint8]())
+
+
 @value
 @register_passable("trivial")
 struct Particle:

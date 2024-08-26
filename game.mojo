@@ -27,7 +27,8 @@ def main():
     view_pos_y = 0
     screen_size = (1200, 800)
     view_size = (screen_size[0] // view_scale, screen_size[1] // view_scale)
-    renderer = Renderer(Window(sdl, "Dustbin", screen_size[0], screen_size[1]), RendererFlags.SDL_RENDERER_ACCELERATED)
+    window = Window(sdl, "Dustbin", screen_size[0], screen_size[1])
+    renderer = Renderer(window^, RendererFlags.SDL_RENDERER_ACCELERATED)
     texture = Texture(renderer, TexturePixelFormat.RGBA8888, TextureAccess.STREAMING, view_size[0], view_size[1])
     field = Field(width, height)
     rnd = 123456789
@@ -85,6 +86,8 @@ def main():
                     selected = water
                 elif e.keysym.scancode == KeyCode._5:
                     selected = sand
+                elif e.keysym.scancode == KeyCode._6:
+                    selected = stone
 
         # view to field transformation
         @parameter
@@ -157,6 +160,13 @@ fn update(inout field: Field, inout rnd: Int):
             return field[x, y].type < p.type
         return False
 
+    @parameter
+    @always_inline
+    fn same(p: Particle, x: Int, y: Int) -> Bool:
+        if 0 <= x < field.width and 0 <= y < field.height:
+            return field[x, y].type == p.type
+        return False
+
     # swap particles
     @parameter
     @always_inline
@@ -200,6 +210,17 @@ fn update(inout field: Field, inout rnd: Int):
             if particle.type == 0 or particle.skip == field.skip:
                 continue
 
+            # update the stone particle
+            if particle.type == 6:
+                var ox = sign()
+
+                if same(particle, x + ox, y):
+                    continue
+
+                if denser(particle, x, y + 1):
+                    swap(x, y, x, y + 1)
+                    continue
+
             # update the sand particle
             if particle.type == 5:
                 if empty(x, y + 1):
@@ -218,7 +239,7 @@ fn update(inout field: Field, inout rnd: Int):
             # update the water particle
             elif particle.type == 4:
                 if denser(particle, x, y - 1) and (rand() % 10000) == 1:
-                    field[x, y] = vapor(not field.skip)
+                    field[x, y] = vapor(field.skip)
                     continue
 
                 if denser(particle, x, y + 1):
@@ -249,13 +270,13 @@ fn update(inout field: Field, inout rnd: Int):
             # update the dust particle
             elif particle.type == 3:
                 if (y > 0 and denser(field[x, y - 1], x, y) and rand() % 8 == 1) or (y < height - 1 and field[x, y + 1].type == 4 and rand() % 32 == 1):
-                    field[x, y] = sand(not field.skip)
+                    field[x, y] = sand(field.skip)
 
                 var fx = sign()
                 var fy = sign()
 
                 if (0 <= x + fx < width and 0 <= y + fy < height and field[x + fx, y + fy].type == 1):
-                    field[x, y] = fire(not field.skip)
+                    field[x, y] = fire(field.skip)
 
                 if rand() % 4 != 1:
                     continue
@@ -274,7 +295,7 @@ fn update(inout field: Field, inout rnd: Int):
             # update the vapor particle
             elif particle.type == 2:
                 if (rand() % 10000) == 1:
-                    field[x, y] = water(not field.skip)
+                    field[x, y] = water(field.skip)
                     continue
 
                 var xo = dir()
@@ -290,7 +311,7 @@ fn update(inout field: Field, inout rnd: Int):
                     field[x, y].g = (field[x, y].g // 6) + 20
                     field[x, y].b = (field[x, y].b // 6) + 20
                     if field[x, y].r == 40:
-                        field[x, y] = space(not field.skip)
+                        field[x, y] = space(field.skip)
 
                 var xo = dir() * (rand() % 4 == 1)
                 var yo = -(rand() % 2)
