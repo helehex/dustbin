@@ -4,12 +4,13 @@
 
 from random import seed
 from collections import Optional
+from algorithm import parallelize
 from sdl import *
-from field import Field
+from field import *
 from particle import *
 
-alias width = 800
-alias height = 600
+alias width = 6000
+alias height = 800
 alias fps = 100
 
 
@@ -24,7 +25,10 @@ def main():
     view_scale = 1
     view_pos_x = 0
     view_pos_y = 0
-    renderer = Renderer(Window(sdl, "Dustbin", width * view_scale, height * view_scale), RendererFlags.SDL_RENDERER_ACCELERATED)
+    screen_size = (1200, 800)
+    view_size = (screen_size[0] // view_scale, screen_size[1] // view_scale)
+    renderer = Renderer(Window(sdl, "Dustbin", screen_size[0], screen_size[1]), RendererFlags.SDL_RENDERER_ACCELERATED)
+    texture = Texture(renderer, TexturePixelFormat.RGBA8888, TextureAccess.STREAMING, view_size[0], view_size[1])
     field = Field(width, height)
     rnd = 123456789
     cursor_size = 1
@@ -32,11 +36,10 @@ def main():
     selected = sand
     running = True
     frame_count = 0
+    smooth_fps = 0.0
 
     # main game loop
     while running:
-        var view_size = renderer.get_output_size()
-
         # handle events
         event_list = sdl.event_list()
         for event in event_list:
@@ -45,7 +48,9 @@ def main():
             elif event[].isa[events.WindowEvent]():
                 var e = event[].unsafe_take[events.WindowEvent]()
                 if e.event == events.WindowEventID.WINDOWEVENT_SIZE_CHANGED.cast[DType.uint8]():
-                    renderer.window.get_surface()
+                    screen_size = renderer.get_output_size()
+                    view_size = (screen_size[0] // view_scale, screen_size[1] // view_scale)
+                    texture = Texture(renderer, TexturePixelFormat.RGBA8888, TextureAccess.STREAMING, view_size[0], view_size[1])
             elif event[].isa[events.MouseWheelEvent]():
                 cursor_size = max(0, cursor_size + int(event[].unsafe_get[events.MouseWheelEvent]()[].y))
             elif event[].isa[events.KeyDownEvent]():
@@ -53,14 +58,22 @@ def main():
                 if e.keysym.scancode == KeyCode.EQUALS:
                     new_scale = view_scale + 1
                     if new_scale <= 16:
-                        view_pos_x = ((view_pos_x * new_scale) // view_scale) + ((view_size[0] // view_scale) // 2)
-                        view_pos_y = ((view_pos_y * new_scale) // view_scale) + ((view_size[1] // view_scale) // 2)
+                        view_pos_x += (view_size[0] // 2)
+                        view_pos_y += (view_size[1] // 2)
+                        view_size = (screen_size[0] // new_scale, screen_size[1] // new_scale)
+                        texture = Texture(renderer, TexturePixelFormat.RGBA8888, TextureAccess.STREAMING, view_size[0], view_size[1])
+                        view_pos_x -= (view_size[0] // 2)
+                        view_pos_y -= (view_size[1] // 2)
                         view_scale = new_scale
                 elif e.keysym.scancode == KeyCode.MINUS:
                     new_scale = view_scale - 1
                     if new_scale > 0:
-                        view_pos_x = ((view_pos_x * new_scale) // view_scale) - ((view_size[0] // view_scale) // 2)
-                        view_pos_y = ((view_pos_y * new_scale) // view_scale) - ((view_size[1] // view_scale) // 2)
+                        view_pos_x += (view_size[0] // 2)
+                        view_pos_y += (view_size[1] // 2)
+                        view_size = (screen_size[0] // new_scale, screen_size[1] // new_scale)
+                        texture = Texture(renderer, TexturePixelFormat.RGBA8888, TextureAccess.STREAMING, view_size[0], view_size[1])
+                        view_pos_x -= (view_size[0] // 2)
+                        view_pos_y -= (view_size[1] // 2)
                         view_scale = new_scale
                 elif e.keysym.scancode == KeyCode._1:
                     selected = fire
@@ -73,12 +86,14 @@ def main():
                 elif e.keysym.scancode == KeyCode._5:
                     selected = sand
 
-        # screen to field transformation
+        # view to field transformation
         @parameter
-        fn screen2field(x: Int, y: Int) -> (Int, Int):
-            return ((x + view_pos_x) // view_scale) % field.width, ((y + view_pos_y) // view_scale) % field.height
+        @always_inline
+        fn view2field(x: Int, y: Int) -> (Int, Int):
+            return (x + view_pos_x) % field.width, (y + view_pos_y) % field.height
+
         mouse_pos = mouse.get_position()
-        cursor_pos = screen2field(mouse_pos[0], mouse_pos[1])
+        cursor_pos = view2field(mouse_pos[0] // view_scale, mouse_pos[1] // view_scale)
 
         # spawn particles at cursor position if dropping is not none
         dropping = Optional[fn(skip: Bool) -> Particle](None)
@@ -94,32 +109,34 @@ def main():
                     field[x, y] = dropping.unsafe_value()(not field.skip)
 
         # move camera
+        var mevement_speed = (10 // view_scale) + 1
         if keyboard.state[KeyCode.W]:
-            view_pos_y -= 10
+            view_pos_y -= mevement_speed
         if keyboard.state[KeyCode.A]:
-            view_pos_x -= 10
+            view_pos_x -= mevement_speed
         if keyboard.state[KeyCode.S]:
-            view_pos_y += 10
+            view_pos_y += mevement_speed
         if keyboard.state[KeyCode.D]:
-            view_pos_x += 10
+            view_pos_x += mevement_speed
 
         # update field
         update(field, rnd)
 
         # draw field
-        draw[screen2field](field, renderer)
+        draw[view2field](field, renderer, texture, view_size)
 
         # draw cursor
         renderer.set_color(Color(255, 255, 255, 0))
         renderer.set_blendmode(BlendMode.MUL)
-        renderer.draw_rect(Rect(mouse.get_position()[0] - cursor_size*view_scale, mouse.get_position()[1] - cursor_size*view_scale, cursor_size*view_scale*2, cursor_size*view_scale*2))
+        renderer.draw_rect(Rect(mouse_pos[0] - cursor_size*view_scale, mouse_pos[1] - cursor_size*view_scale, cursor_size*view_scale*2, cursor_size*view_scale*2))
         renderer.present()
 
         # limit fps
         clock.tick()
         frame_count += 1
-        # if frame_count % 100 == 1:
-        #     print(1/clock.delta_time)
+        smooth_fps = (smooth_fps * 0.9) + (0.1/clock.delta_time)
+        if frame_count % 100 == 1:
+            print(smooth_fps)
 
 
 fn update(inout field: Field, inout rnd: Int):
@@ -180,7 +197,7 @@ fn update(inout field: Field, inout rnd: Int):
             field[x, y].skip = field.skip
 
             # particle already updated, continue
-            if particle.skip == field.skip:
+            if particle.type == 0 or particle.skip == field.skip:
                 continue
 
             # update the sand particle
@@ -230,11 +247,14 @@ fn update(inout field: Field, inout rnd: Int):
                     field[x, y].b = 200
 
             # update the dust particle
-            if particle.type == 3:
-                if (denser(field[x, y - 1], x, y) and rand() % 4 == 1) or (field[x, y + 1].type == 4 and rand() % 32 == 1):
+            elif particle.type == 3:
+                if (y > 0 and denser(field[x, y - 1], x, y) and rand() % 8 == 1) or (y < height - 1 and field[x, y + 1].type == 4 and rand() % 32 == 1):
                     field[x, y] = sand(not field.skip)
 
-                if field[x, y - 1].type == 1 or field[x, y + 1].type == 1 or field[x - 1, y].type == 1 or field[x + 1, y].type == 1:
+                var fx = sign()
+                var fy = sign()
+
+                if (0 <= x + fx < width and 0 <= y + fy < height and field[x + fx, y + fy].type == 1):
                     field[x, y] = fire(not field.skip)
 
                 if rand() % 4 != 1:
@@ -281,21 +301,28 @@ fn update(inout field: Field, inout rnd: Int):
     field.skip = not field.skip
 
 
-fn draw[screen2field: fn(Int, Int) capturing -> (Int, Int)](field: Field, renderer: Renderer) raises:
-    alias clear_color = Color(14, 10, 8, 255)
-    var view_size = renderer.get_output_size()
-    renderer.window.surface.lock()
-    var pixels = renderer.window.surface._surface_ptr[].pixels
-    var idx = 0
+fn draw[view2field: fn(Int, Int) capturing -> (Int, Int)](field: Field, renderer: Renderer, texture: Texture, view_size: (Int, Int)) raises:
+    alias clear_color = Color(14, 10, 8, 0)
+    alias chunk_size = 128
 
-    for y in range(view_size[1]):
-        for x in range(view_size[0]):
-            var xy = screen2field(x, y)
-            var particle = field[xy[0], xy[1]]
-            if particle.type == 0:
-                pixels[idx] = clear_color.as_uint32()
-            else:
-                pixels[idx] = Color(particle.r, particle.g, particle.b, 255).as_uint32()
-            idx += 1
+    var pixels = texture.lock()._ptr.bitcast[Color]()
+    
+    @parameter
+    fn chunk(chunk: Int):
+        var start = chunk * chunk_size
+        var end = min(start + chunk_size, view_size[1])
+        var ptr = pixels + (start * view_size[0])
+        for y in range(start, end):
+            for x in range(view_size[0]):
+                var xy = view2field(x, y)
+                var particle = field[xy[0], xy[1]]
+                var c0 = int(particle.type == 0)
+                var c1 = 1 - c0
+                ptr[] = Color(0, (clear_color.b * c0) + (particle.b * c1), (clear_color.g * c0) + (particle.g * c1), (clear_color.r * c0) + (particle.r * c1))
+                ptr += 1
 
-    renderer.window.surface.unlock()
+    parallelize[chunk]((view_size[1] // chunk_size) + 1)
+
+    _ = pixels
+    texture.unlock()
+    renderer.copy(texture, None)

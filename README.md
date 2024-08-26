@@ -2,7 +2,7 @@
 
 A falling sand game demo, written in Mojo.
 
-To run dustbin, you need sdl installed:  
+To run dustbin, you need to have sdl installed:  
 `sudo apt install libsdl2-dev`
 
 You can find the sdl-bindings package used for rendering [here](https://github.com/Ryul0rd/sdl-bindings)
