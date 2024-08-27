@@ -24,7 +24,7 @@ def main():
 
     screen_size = (1200, 800)
     window = Window(sdl, "Dustbin", screen_size[0], screen_size[1])
-    renderer = Renderer(window^, RendererFlags.SDL_RENDERER_ACCELERATED)
+    renderer = Renderer(window^, -1, RendererFlags.SDL_RENDERER_SOFTWARE)
     camera = Camera(renderer)
     field = Field()
     cursor_size = 1
@@ -110,4 +110,4 @@ def main():
         frame_count += 1
         smooth_fps = (smooth_fps * 0.9) + (0.1/clock.delta_time)
         if frame_count % 100 == 1:
-            print(smooth_fps)
+            print("fps: ", int(smooth_fps))

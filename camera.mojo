@@ -64,7 +64,6 @@ struct Camera:
             self.view_pos_x += mevement_speed
 
     fn draw(self, field: Field, renderer: Renderer) raises:
-        alias clear_color = Color(14, 10, 8, 0)
         alias chunk_size = 128
 
         var pixels = self.texture.lock()._ptr.bitcast[Color]()
@@ -78,9 +77,7 @@ struct Camera:
                 for x in range(self.view_size_x):
                     var xy = self.view2field(x, y)
                     var particle = field[xy[0], xy[1]]
-                    var c0 = int(particle.type == 0)
-                    var c1 = 1 - c0
-                    ptr[] = Color(0, (clear_color.b * c0) + (particle.b * c1), (clear_color.g * c0) + (particle.g * c1), (clear_color.r * c0) + (particle.r * c1))
+                    ptr[] = Color(0, particle.b, particle.g, particle.r)
                     ptr += 1
 
         parallelize[chunk]((self.view_size_y // chunk_size) + 1)

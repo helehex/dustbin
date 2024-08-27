@@ -10,6 +10,7 @@ alias width = 4096
 alias height = 1024
 alias wrap_x = True
 
+
 struct Field:
     var run: Bool
     var rnd: Int
@@ -24,7 +25,8 @@ struct Field:
         var size = width * height
         self.border = border()
         self.particles = UnsafePointer[Particle].alloc(size)
-        memset_zero(self.particles, size)
+        for idx in range(size):
+            self.particles[idx] = space(True)
 
     fn __del__(owned self):
         self.particles.free()
