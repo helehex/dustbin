@@ -3,7 +3,7 @@
 A falling sand game demo, written in Mojo.
 
 Currently, Dustbin uses the latest Mojo nightly version:  
-`mojo 2024.8.2605 (4cde25da)`.
+`mojo 2024.8.2617 (d505bcbe)`.
 
 To run dustbin, you need to have sdl installed:  
 `sudo apt install libsdl2-dev`
@@ -18,3 +18,5 @@ You can find the sdl-bindings package used for rendering [here](https://github.c
 - Scroll wheel to change placement size
 - Plus and Minus to zoom camera
 - W A S D to move camera
+- Space to pause
+- F to step one frame
