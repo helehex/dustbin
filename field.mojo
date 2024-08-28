@@ -26,7 +26,7 @@ struct Field:
         self.border = border()
         self.particles = UnsafePointer[Particle].alloc(size)
         for idx in range(size):
-            self.particles[idx] = space(True)
+            self.particles[idx] = space(self)
 
     fn __del__(owned self):
         self.particles.free()
@@ -84,6 +84,8 @@ struct Field:
         if not self.run:
             return
 
+        self.skip = not self.skip
+
         # loop over all particles
         for y in range(height):
             for x in range(width):
@@ -111,30 +113,6 @@ struct Field:
                 if particle.type == 0 or particle.skip == self.skip:
                     continue
 
-                # update the stone particle
-                if particle.type == 6:
-                    update_stone[neighbor](self, particle)
-
-                # update the sand particle
-                if particle.type == 5:
-                    update_sand[neighbor](self, particle)
-
-                # update the water particle
-                elif particle.type == 4:
-                    update_water[neighbor](self, particle)
-
-                # update the dust particle
-                elif particle.type == 3:
-                    update_dust[neighbor](self, particle)
-
-                # update the vapor particle
-                elif particle.type == 2:
-                    update_vapor[neighbor](self, particle)
-
-                # update the fire particle
-                elif particle.type == 1:
-                    update_fire[neighbor](self, particle)
+                particle.update[neighbor](self)
                 
                 self[x, y] = particle
-
-        self.skip = not self.skip

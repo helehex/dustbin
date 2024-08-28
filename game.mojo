@@ -77,7 +77,7 @@ def main():
         cursor_pos = camera.view2field(mouse_pos[0] // camera.view_scale, mouse_pos[1] // camera.view_scale)
 
         # spawn particles at cursor position if dropping is not none
-        dropping = Optional[fn(skip: Bool) -> Particle](None)
+        dropping = Optional[fn(field: Field, skip: Bool = False) -> Particle](None)
         if mouse.get_buttons() & 1:
             dropping = selected
         elif mouse.get_buttons() & 2:
@@ -87,7 +87,7 @@ def main():
         if dropping:
             for x in range(max(cursor_pos[0] - cursor_size, 0), min(cursor_pos[0] + cursor_size + 1, width)):
                 for y in range(max(cursor_pos[1] - cursor_size, 0), min(cursor_pos[1] + cursor_size + 1, height)):
-                    field[x, y] = dropping.unsafe_value()(not field.skip)
+                    field[x, y] = dropping.unsafe_value()(field)
 
         # update field and camera
         field.update(keyboard)
@@ -100,8 +100,9 @@ def main():
         camera.draw(field, renderer)
 
         # draw cursor
-        renderer.set_color(Color(255, 255, 255, 0))
-        renderer.set_blendmode(BlendMode.MUL)
+        var sp = selected(field)
+        renderer.set_color(Color(sp.r, sp.g, sp.b, 127))
+        renderer.set_blendmode(BlendMode.ADD)
         renderer.draw_rect(Rect(mouse_pos[0] - cursor_size*camera.view_scale, mouse_pos[1] - cursor_size*camera.view_scale, cursor_size*camera.view_scale*2, cursor_size*camera.view_scale*2))
         renderer.present()
 

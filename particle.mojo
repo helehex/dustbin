@@ -6,6 +6,7 @@ from sdl import Color
 from random import random_ui64
 from field import Field
 
+alias update_particle = List(update_space, update_fire, update_vapor, update_dust, update_water, update_sand, update_stone)
 
 # +----------------------------------------------------------------------------------------------+ #
 # | Particle
@@ -21,6 +22,16 @@ struct Particle:
     var g: UInt8
     var b: UInt8
 
+    @always_inline("nodebug")
+    fn update[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout self, inout field: Field):
+        # Using update_particle[self.type] directly breaks...
+        @parameter
+        for i in range(1, len(update_particle)):
+            if self.type == i:
+                alias _fn = update_particle[i]
+                _fn[neighbor](self, field)
+                return
+
 
 # +----------------------------------------------------------------------------------------------+ #
 # | Border
@@ -34,12 +45,12 @@ fn border() -> Particle:
 # | Space
 # +----------------------------------------------------------------------------------------------+ #
 #
-fn space(skip: Bool) -> Particle:
-    return Particle(skip, 0, 0, 14, 10, 8)
+fn space(field: Field, skip: Bool = False) -> Particle:
+    return Particle(field.skip != skip, 0, 0, 14, 10, 8)
 
 
 @always_inline("nodebug")
-fn update_space[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout field: Field, inout particle: Particle):
+fn update_space[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout particle: Particle, inout field: Field):
     pass
 
 
@@ -47,18 +58,18 @@ fn update_space[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturi
 # | Fire
 # +----------------------------------------------------------------------------------------------+ #
 #
-fn fire(skip: Bool) -> Particle:
-    return Particle(skip, 1, 0, 240, 160, 80)
+fn fire(field: Field, skip: Bool = False) -> Particle:
+    return Particle(field.skip != skip, 1, 0, 240, 160, 80)
 
 
 @always_inline("nodebug")
-fn update_fire[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout field: Field, inout particle: Particle):
+fn update_fire[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout particle: Particle, inout field: Field):
     if field.rand() % 16 == 0:
         particle.r = (particle.r // 2) + 20
         particle.g = (particle.g // 6) + 20
         particle.b = (particle.b // 6) + 20
         if particle.r == 40:
-            particle = space(field.skip)
+            particle = space(field)
 
     var xo = field.dir() * (field.rand() % 4 == 0)
     var yo = -(field.rand() % 2)
@@ -71,14 +82,14 @@ fn update_fire[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturin
 # | Vapor
 # +----------------------------------------------------------------------------------------------+ #
 #
-fn vapor(skip: Bool) -> Particle:
-    return Particle(skip, 2, 0, 20, 40, 80)
+fn vapor(field: Field, skip: Bool = False) -> Particle:
+    return Particle(field.skip != skip, 2, 0, 20, 40, 80)
 
 
 @always_inline("nodebug")
-fn update_vapor[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout field: Field, inout particle: Particle):
+fn update_vapor[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout particle: Particle, inout field: Field):
     if (field.rand() % 16384) == 0:
-        particle = water(field.skip)
+        particle = water(field)
         return
 
     var xo = field.dir()
@@ -92,20 +103,20 @@ fn update_vapor[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturi
 # | Dust
 # +----------------------------------------------------------------------------------------------+ #
 #
-fn dust(skip: Bool) -> Particle:
-    return Particle(skip, 3, 0, random_ui64(160, 180).cast[DType.uint8](), random_ui64(140, 160).cast[DType.uint8](), 120)
+fn dust(field: Field, skip: Bool = False) -> Particle:
+    return Particle(field.skip != skip, 3, 0, random_ui64(160, 180).cast[DType.uint8](), random_ui64(140, 160).cast[DType.uint8](), 120)
 
 
 @always_inline("nodebug")
-fn update_dust[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout field: Field, inout particle: Particle):
+fn update_dust[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout particle: Particle, inout field: Field):
     if (field.denser(neighbor(0, -1), particle) and field.rand() % 8 == 0) or (neighbor(0, 1).type == 4 and field.rand() % 32 == 0):
-        particle = sand(field.skip)
+        particle = sand(field)
 
     var fx = field.sign()
     var fy = field.sign()
 
     if neighbor(fx, fy).type == 1:
-        particle = fire(field.skip)
+        particle = fire(field)
 
     if field.rand() % 4 != 0:
         return
@@ -126,14 +137,14 @@ fn update_dust[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturin
 # | Water
 # +----------------------------------------------------------------------------------------------+ #
 #
-fn water(skip: Bool) -> Particle:
-    return Particle(skip, 4, 0, 40, 80, random_ui64(180, 200).cast[DType.uint8]())
+fn water(field: Field, skip: Bool = False) -> Particle:
+    return Particle(field.skip != skip, 4, 0, 40, 80, random_ui64(180, 200).cast[DType.uint8]())
 
 
 @always_inline("nodebug")
-fn update_water[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout field: Field, inout particle: Particle):
+fn update_water[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout particle: Particle, inout field: Field):
     if field.denser(particle, neighbor(0, -1)) and (field.rand() % 16384) == 0:
-        particle = vapor(field.skip)
+        particle = vapor(field)
         return
 
     if field.denser(particle, neighbor(0, 1)):
@@ -165,12 +176,12 @@ fn update_water[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturi
 # | Sand
 # +----------------------------------------------------------------------------------------------+ #
 #
-fn sand(skip: Bool) -> Particle:
-    return Particle(skip, 5, 0, random_ui64(180, 200).cast[DType.uint8](), random_ui64(160, 180).cast[DType.uint8](), 60)
+fn sand(field: Field, skip: Bool = False) -> Particle:
+    return Particle(field.skip != skip, 5, 0, random_ui64(180, 200).cast[DType.uint8](), random_ui64(160, 180).cast[DType.uint8](), 60)
 
 
 @always_inline("nodebug")
-fn update_sand[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout field: Field, inout particle: Particle):
+fn update_sand[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout particle: Particle, inout field: Field):
     if field.empty(neighbor(0, 1)):
         field.swap(particle, neighbor(0, 1))
         return
@@ -189,12 +200,12 @@ fn update_sand[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturin
 # | Stone
 # +----------------------------------------------------------------------------------------------+ #
 #
-fn stone(skip: Bool) -> Particle:
-    return Particle(skip, 6, 0, random_ui64(100, 120).cast[DType.uint8](), random_ui64(100, 120).cast[DType.uint8](), random_ui64(100, 120).cast[DType.uint8]())
+fn stone(field: Field, skip: Bool = False) -> Particle:
+    return Particle(field.skip != skip, 6, 0, random_ui64(100, 120).cast[DType.uint8](), random_ui64(100, 120).cast[DType.uint8](), random_ui64(100, 120).cast[DType.uint8]())
 
 
 @always_inline("nodebug")
-fn update_stone[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout field: Field, inout particle: Particle):
+fn update_stone[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout particle: Particle, inout field: Field):
     var ox = field.sign()
 
     if field.same(particle, neighbor(ox, 0)):
