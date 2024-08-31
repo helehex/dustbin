@@ -9,7 +9,6 @@ from field import *
 from camera import Camera
 from particle import *
 
-
 alias fps = 100
 
 
@@ -22,7 +21,7 @@ def main():
     mouse = Mouse(sdl)
     keyboard = Keyboard(sdl)
 
-    screen_size = (1200, 800)
+    screen_size = (1200, 700)
     window = Window(sdl, "Dustbin", screen_size[0], screen_size[1])
     renderer = Renderer(window^, -1, RendererFlags.SDL_RENDERER_SOFTWARE)
     camera = Camera(renderer)

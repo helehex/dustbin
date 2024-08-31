@@ -6,7 +6,6 @@ from algorithm import parallelize
 from sdl import Keyboard, KeyCode, Renderer, Texture, TexturePixelFormat, TextureAccess
 from field import *
 
-
 alias max_view_scale = 16
 alias min_view_scale = 1
 
@@ -26,7 +25,7 @@ struct Camera:
         self.view_size_y = screen_size[1] // self.view_scale
         self.view_pos_x = 0
         self.view_pos_y = height - self.view_size_y
-        self.texture = Texture(renderer, TexturePixelFormat.RGBA8888, TextureAccess.STREAMING, self.view_size_x, self.view_size_y)
+        self.texture = Texture(renderer, TexturePixelFormat.RGBA32, TextureAccess.STREAMING, self.view_size_x, self.view_size_y)
 
     fn set_scale(inout self, owned scale: Int, renderer: Renderer) raises:
         scale = min(max(min_view_scale, scale), max_view_scale)
@@ -44,10 +43,10 @@ struct Camera:
         self.view_size_y = screen_size[1] // self.view_scale
 
         # TODO: for some reason, doing the obvious thing here doesn't work...
-        var texture = Texture(renderer, TexturePixelFormat.RGBA8888, TextureAccess.STREAMING, self.view_size_x, self.view_size_y)
+        var texture = Texture(renderer, TexturePixelFormat.RGBA32, TextureAccess.STREAMING, self.view_size_x, self.view_size_y)
         self.texture = texture^
 
-    @always_inline("nodebug")
+    @always_inline
     fn view2field(self, x: Int, y: Int) -> (Int, Int):
         return (x + self.view_pos_x) % width, (y + self.view_pos_y) % height
 
@@ -65,8 +64,7 @@ struct Camera:
 
     fn draw(self, field: Field, renderer: Renderer) raises:
         alias chunk_size = 128
-
-        var pixels = self.texture.lock()._ptr.bitcast[Color]()
+        var pixels = self.texture.lock()._ptr.bitcast[ColorRGBA32]()
         
         @parameter
         fn chunk(chunk: Int):
@@ -77,7 +75,7 @@ struct Camera:
                 for x in range(self.view_size_x):
                     var xy = self.view2field(x, y)
                     var particle = field[xy[0], xy[1]]
-                    ptr[] = Color(0, particle.b, particle.g, particle.r)
+                    ptr[] = ColorRGBA32(particle.r, particle.g, particle.b, 0)
                     ptr += 1
 
         parallelize[chunk]((self.view_size_y // chunk_size) + 1)
@@ -85,3 +83,20 @@ struct Camera:
         _ = pixels
         self.texture.unlock()
         renderer.copy(self.texture, None)
+
+
+@value
+@register_passable("trivial")
+struct ColorRGB24:
+    var r: UInt8
+    var g: UInt8
+    var b: UInt8
+
+
+@value
+@register_passable("trivial")
+struct ColorRGBA32:
+    var r: UInt8
+    var g: UInt8
+    var b: UInt8
+    var a: UInt8

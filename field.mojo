@@ -6,7 +6,7 @@ from memory import memset_zero
 from sdl import Keyboard
 from particle import *
 
-alias width = 4096
+alias width = 2048
 alias height = 1024
 alias wrap_x = True
 
@@ -14,7 +14,7 @@ alias wrap_x = True
 struct Field:
     var run: Bool
     var rnd: Int
-    var skip: Bool
+    var skip: UInt8
     var border: Particle
     var particles: UnsafePointer[Particle]
     
@@ -37,28 +37,28 @@ struct Field:
     fn __getitem__(ref[_] self, x: Int, y: Int) -> ref[__lifetime_of(self)] Particle:
         return self.particles[x + y*width]
 
-    @always_inline("nodebug")
+    @always_inline
     fn empty(self, inout p: Particle) -> Bool:
         """Returns True if the cell at (x, y) is empty."""
         return p.type == 0
 
-    @always_inline("nodebug")
+    @always_inline
     fn denser(self, p1: Particle, p2: Particle) -> Bool:
         """Returns True if particle `p1` is denser than particle `p2`."""
         return p2.type != -1 and p1.type > p2.type
 
-    @always_inline("nodebug")
+    @always_inline
     fn same(self, p1: Particle, p2: Particle) -> Bool:
         """Returns True if particle `p1` is denser than particle `p2`."""
         return p2.type != -1 and p1.type == p2.type
 
-    @always_inline("nodebug")
+    @always_inline
     fn swap(inout self, inout p1: Particle, inout p2: Particle):
         """Swaps the particle `p1` with particle `p2`. Does not check bounds."""
-        p1.skip = self.skip
+        p1.flags = (p1.flags & ~Particle.skip_flag) | self.skip
         swap(p1, p2)
 
-    @always_inline("nodebug")
+    @always_inline
     fn rand(inout self) -> Int:
         rnd = (self.rnd ^ 61) ^ (self.rnd >> 16)
         rnd = rnd + (rnd << 3)
@@ -68,12 +68,12 @@ struct Field:
         self.rnd = rnd
         return rnd
 
-    @always_inline("nodebug")
+    @always_inline
     fn sign(inout self) -> Int:
         """Randomly returns either `1` or `-1`."""
         return ((self.rand() % 2) * 2) - 1
 
-    @always_inline("nodebug")
+    @always_inline
     fn dir(inout self) -> Int:
         """Randomly returns either 2, 1, 0, -1 or -2."""
         return (self.rand() % 7) - 3
@@ -84,7 +84,7 @@ struct Field:
         if not self.run:
             return
 
-        self.skip = not self.skip
+        self.skip ^= Particle.skip_flag
 
         # loop over all particles
         for y in range(height):
@@ -107,10 +107,10 @@ struct Field:
                             return self.border
 
                 var particle = self[x, y]
-                self[x, y].skip = self.skip
+                self[x, y].flags = (self[x, y].flags & ~Particle.skip_flag) | self.skip
 
                 # particle already updated, continue
-                if particle.type == 0 or particle.skip == self.skip:
+                if particle.type == 0 or (particle.flags & Particle.skip_flag) == self.skip:
                     continue
 
                 particle.update[neighbor](self)
