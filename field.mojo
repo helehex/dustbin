@@ -2,37 +2,37 @@
 # | Copyright (c) 2024 Helehex
 # x--------------------------------------------------------------------------x #
 
-from memory import memset_zero
 from sdl import Keyboard
 from particle import *
 
-alias width = 2048
-alias height = 1024
+alias width = 1<<14
+alias height = 1<<10
 alias wrap_x = True
 
 
+# +----------------------------------------------------------------------------------------------+ #
+# | Field
+# +----------------------------------------------------------------------------------------------+ #
+#
 struct Field:
-    var run: Bool
     var rnd: Int
+    var run: Bool
     var skip: UInt8
     var border: Particle
     var particles: UnsafePointer[Particle]
     
     fn __init__(inout self):
+        self.rnd = 13
         self.run = True
         self.skip = False
-        self.rnd = 123456789
         var size = width * height
         self.border = border()
         self.particles = UnsafePointer[Particle].alloc(size)
         for idx in range(size):
-            self.particles[idx] = space(self)
+            self.particles[idx] = space(self) # if idx % 16 != 0 else vapor(self)
 
     fn __del__(owned self):
         self.particles.free()
-
-    fn clear(inout self):
-        memset_zero(self.particles, width * height)
 
     fn __getitem__(ref[_] self, x: Int, y: Int) -> ref[__lifetime_of(self)] Particle:
         return self.particles[x + y*width]
@@ -55,42 +55,60 @@ struct Field:
     @always_inline
     fn swap(inout self, inout p1: Particle, inout p2: Particle):
         """Swaps the particle `p1` with particle `p2`. Does not check bounds."""
-        p1.flags = (p1.flags & ~Particle.skip_flag) | self.skip
+        p1.skip = bool(self.skip)
         swap(p1, p2)
 
     @always_inline
     fn rand(inout self) -> Int:
-        rnd = (self.rnd ^ 61) ^ (self.rnd >> 16)
-        rnd = rnd + (rnd << 3)
-        rnd = rnd ^ (rnd >> 4)
-        rnd = rnd * 0x27d4eb2d
-        rnd = rnd ^ (rnd >> 15)
-        self.rnd = rnd
-        return rnd
+        self.rnd ^= self.rnd << 13
+        self.rnd ^= self.rnd >> 17
+        self.rnd ^= self.rnd << 5
+        return self.rnd
 
     @always_inline
-    fn sign(inout self) -> Int:
+    fn rand_dir(inout self) -> Int:
         """Randomly returns either `1` or `-1`."""
         return ((self.rand() % 2) * 2) - 1
 
     @always_inline
-    fn dir(inout self) -> Int:
-        """Randomly returns either 2, 1, 0, -1 or -2."""
-        return (self.rand() % 7) - 3
+    fn rand_bal[mag: IntLiteral](inout self) -> Int:
+        """Randomly returns a value from `-mag` to `mag`."""
+        return (self.rand() % ((mag*2) + 1)) - mag
 
-    fn update(inout self, keyboard: Keyboard):
+    @always_inline
+    fn rand_prb[prb: IntLiteral](inout self) -> Bool:
+        """Randomly returns 0, or 1 with probability `prb`."""
+        return (self.rand() % prb) == 0
 
+    @always_inline
+    fn rand_range[low: IntLiteral, high: IntLiteral](inout self) -> Int:
+        """Randomly returns a value greater than `low`, and less than `high`."""
+        return (self.rand() % (high - low)) + low
+
+    fn update(inout self, keyboard: Keyboard, region: (Int, Int, Int, Int)):
         # return if the field is paused
         if not self.run:
             return
 
+        # flip field.skip
         self.skip ^= Particle.skip_flag
+        # set x_range, this switches direction every frame to avoid sideways bias
+        var x_range = (range(region[0], region[2], 1) if self.skip else reversed(range(region[0], region[2], 1)))
 
-        # loop over all particles
-        for y in range(height):
-            for x in range(width):
+        # loop over particle region
+        for _y in range(region[1], region[3]):
+            var y = _y % height
+            for _x in x_range:
+                var x = _x % width
+                var particle = self[x, y]
 
+                # particle already updated, continue
+                if particle.type == 0 or particle.skip == bool(self.skip):
+                    continue
+
+                # define capturing neighbor function
                 @parameter
+                @always_inline
                 fn neighbor(xo: Int, yo: Int) -> ref[__lifetime_of(self)] Particle:
                     var nx = x + xo
                     var ny = y + yo
@@ -106,13 +124,7 @@ struct Field:
                         else:
                             return self.border
 
-                var particle = self[x, y]
-                self[x, y].flags = (self[x, y].flags & ~Particle.skip_flag) | self.skip
-
-                # particle already updated, continue
-                if particle.type == 0 or (particle.flags & Particle.skip_flag) == self.skip:
-                    continue
-
+                # update particle
+                particle.skip = bool(self.skip)
                 particle.update[neighbor](self)
-                
                 self[x, y] = particle

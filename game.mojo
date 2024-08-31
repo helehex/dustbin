@@ -2,19 +2,18 @@
 # | Copyright (c) 2024 Helehex
 # x--------------------------------------------------------------------------x #
 
-from random import seed
 from collections import Optional
 from sdl import *
-from field import *
+from field import Field, width, height
 from camera import Camera
 from particle import *
 
 alias fps = 100
+alias use_regioning = (True, False)
+alias regioning_pad = (128, 128)
 
 
 def main():
-    seed()
-
     # initialize sdl and sub-systems (used for rendering and event handling)
     sdl = SDL(video=True, events=True)
     clock = Clock(sdl, fps)
@@ -76,7 +75,7 @@ def main():
         cursor_pos = camera.view2field(mouse_pos[0] // camera.view_scale, mouse_pos[1] // camera.view_scale)
 
         # spawn particles at cursor position if dropping is not none
-        dropping = Optional[fn(field: Field, skip: Bool = False) -> Particle](None)
+        dropping = Optional[fn(inout field: Field, skip: Bool = False) -> Particle](None)
         if mouse.get_buttons() & 1:
             dropping = selected
         elif mouse.get_buttons() & 2:
@@ -88,9 +87,24 @@ def main():
                 for y in range(max(cursor_pos[1] - cursor_size, 0), min(cursor_pos[1] + cursor_size + 1, height)):
                     field[x, y] = dropping.unsafe_value()(field)
 
-        # update field and camera
-        field.update(keyboard)
+        # update field
+        region = (0, 0, width, height)
+
+        @parameter
+        if use_regioning[0]:
+            region[0] = camera.view_pos_x - regioning_pad[0]
+            region[2] = camera.view_pos_x + camera.view_size_x + regioning_pad[0]
+
+        @parameter
+        if use_regioning[1]:
+            region[1] = camera.view_pos_y - regioning_pad[1]
+            region[3] = camera.view_pos_y + camera.view_size_y + regioning_pad[1]
+        
+        field.update(keyboard, region)
+
+        # update camera
         camera.update(keyboard)
+
         if step:
             step = False
             field.run = False

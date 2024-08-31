@@ -8,7 +8,8 @@ Currently, Dustbin uses the latest Mojo nightly version:
 To run dustbin, you need to have sdl installed:  
 `sudo apt install libsdl2-dev`
 
-You can find the sdl-bindings package used for rendering [here](https://github.com/Ryul0rd/sdl-bindings)
+Then run:  
+`mojo game.mojo`
 
 ## Controls:
 - Number keys to select element
@@ -20,3 +21,6 @@ You can find the sdl-bindings package used for rendering [here](https://github.c
 - W A S D to move camera
 - Space to pause
 - F to step one frame
+
+> Dependecies:  
+> You can find the sdl-bindings package used for rendering [here](https://github.com/Ryul0rd/sdl-bindings)
