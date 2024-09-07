@@ -17,7 +17,7 @@ Run dustbin with: `magic run game`
 - Space to pause
 - F to step one frame
 
-Mojo version: `mojo 2024.9.605 (018e077a)`
+Mojo version: `mojo 2024.9.705 (f436a6f1)`
 
 > Dependecies:  
 > You can find the sdl-bindings package used for rendering [here](https://github.com/Ryul0rd/sdl-bindings)
