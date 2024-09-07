@@ -2,14 +2,9 @@
 
 A falling sand game demo, written in Mojo.
 
-Currently, Dustbin uses the latest Mojo nightly version:  
-`mojo 2024.9.505 (db76a77f)`.
+Dustin uses [modulars magic cli](https://docs.modular.com/magic)
 
-To run dustbin, you need to have sdl installed:  
-`sudo apt install libsdl2-dev`
-
-Then run:  
-`mojo game.mojo`
+Run dustbin with: `magic run game`
 
 ## Controls:
 - Number keys to select element
@@ -21,6 +16,8 @@ Then run:
 - W A S D to move camera
 - Space to pause
 - F to step one frame
+
+Mojo version: `mojo 2024.9.605 (018e077a)`
 
 > Dependecies:  
 > You can find the sdl-bindings package used for rendering [here](https://github.com/Ryul0rd/sdl-bindings)

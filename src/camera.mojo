@@ -4,7 +4,7 @@
 
 from algorithm import parallelize
 from sdl import Keyboard, KeyCode, Renderer, Texture, TexturePixelFormat, TextureAccess
-from field import *
+from field import Field, width, height
 
 alias max_view_scale = 16
 alias min_view_scale = 1

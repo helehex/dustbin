@@ -4,8 +4,8 @@
 
 from collections import Optional
 from sdl import *
-from field import Field, width, height
 from camera import Camera
+from field import Field, width, height
 from particle import *
 
 alias fps = 100
