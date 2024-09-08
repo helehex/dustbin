@@ -8,6 +8,7 @@ version = "0.1.0"
 
 [tasks]
 game = "magic run mojo src/game.mojo"
+build = "magic run mojo build src/game.mojo -o dustbin.bin"
 
 [dependencies]
 max = "==24.6.0.dev2024090705"
