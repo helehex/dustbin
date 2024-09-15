@@ -1,6 +1,6 @@
 [project]
 authors = ["helehex <helehex@gmail.com>"]
-channels = ["conda-forge", "https://conda.modular.com/max-nightly"]
+channels = ["conda-forge", "https://conda.modular.com/max"]
 description = "Falling sand simulation."
 name = "dustbin"
 platforms = ["linux-64", "osx-arm64"]
@@ -11,5 +11,5 @@ game = "magic run mojo src/game.mojo"
 build = "magic run mojo build src/game.mojo -o dustbin.bin"
 
 [dependencies]
-max = "==24.6.0.dev2024090705"
+max = "==24.5.0"
 sdl2 = ">=2.30.7,<3"
