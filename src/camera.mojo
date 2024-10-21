@@ -1,10 +1,10 @@
 # x--------------------------------------------------------------------------x #
-# | Copyright (c) 2024 Helehex
+# | Helehex Dustbin
 # x--------------------------------------------------------------------------x #
 
 from algorithm import parallelize
 from sdl import Keyboard, KeyCode, Renderer, Texture, TexturePixelFormat, TextureAccess
-from field import Field, width, height
+from world import World, width, height
 
 alias max_view_scale = 16
 alias min_view_scale = 1
@@ -51,7 +51,7 @@ struct Camera:
         self.texture = texture^
 
     @always_inline
-    fn view2field(self, x: Int, y: Int) -> (Int, Int):
+    fn view2world(self, x: Int, y: Int) -> (Int, Int):
         return (x + self.view_pos_x) % width, (y + self.view_pos_y) % height
 
     fn update(inout self, keyboard: Keyboard):
@@ -66,7 +66,7 @@ struct Camera:
         if keyboard.state[KeyCode.D]:
             self.view_pos_x += mevement_speed
 
-    fn draw(self, field: Field, renderer: Renderer) raises:
+    fn draw(self, field: World, renderer: Renderer) raises:
         alias chunk_size = 128
         var pixels = self.texture.lock()._ptr.bitcast[ColorRGBA32]()
         
@@ -77,7 +77,7 @@ struct Camera:
             var ptr = pixels + (start * self.view_size_x)
             for y in range(start, end):
                 for x in range(self.view_size_x):
-                    var xy = self.view2field(x, y)
+                    var xy = self.view2world(x, y)
                     var particle = field[xy[0], xy[1]]
                     ptr[] = ColorRGBA32(particle.r, particle.g, particle.b, 0)
                     ptr += 1

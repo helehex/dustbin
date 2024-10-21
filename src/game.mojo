@@ -1,11 +1,11 @@
 # x--------------------------------------------------------------------------x #
-# | Copyright (c) 2024 Helehex
+# | Helehex Dustbin
 # x--------------------------------------------------------------------------x #
 
 from collections import Optional
 from sdl import *
 from camera import Camera
-from field import Field, width, height
+from world import World, width, height
 from particle import *
 
 alias fps = 100
@@ -24,7 +24,7 @@ def main():
     window = Window(sdl, "Dustbin", screen_size[0], screen_size[1])
     renderer = Renderer(window^, -1, RendererFlags.SDL_RENDERER_SOFTWARE)
     camera = Camera(renderer)
-    field = Field()
+    world = World()
     cursor_size = 1
     
     selected = sand
@@ -50,9 +50,9 @@ def main():
             elif event[].isa[events.KeyDownEvent]():
                 var e = event[].unsafe_take[events.KeyDownEvent]()
                 if e.keysym.scancode == KeyCode.SPACE:
-                    field.run = not field.run
+                    world.run = not world.run
                 if e.keysym.scancode == KeyCode.F:
-                    field.run = True
+                    world.run = True
                     step = True
                 elif e.keysym.scancode == KeyCode.EQUALS:
                     camera.set_scale(camera.view_scale + 1, renderer)
@@ -72,10 +72,10 @@ def main():
                     selected = stone
 
         mouse_pos = mouse.get_position()
-        cursor_pos = camera.view2field(mouse_pos[0] // camera.view_scale, mouse_pos[1] // camera.view_scale)
+        cursor_pos = camera.view2world(mouse_pos[0] // camera.view_scale, mouse_pos[1] // camera.view_scale)
 
         # spawn particles at cursor position if dropping is not none
-        dropping = Optional[fn(inout field: Field, skip: Bool = False) -> Particle](None)
+        dropping = Optional[fn(inout world: World, skip: Bool = False) -> Particle](None)
         if mouse.get_buttons() & 1:
             dropping = selected
         elif mouse.get_buttons() & 2:
@@ -85,9 +85,9 @@ def main():
         if dropping:
             for x in range(max(cursor_pos[0] - cursor_size, 0), min(cursor_pos[0] + cursor_size + 1, width)):
                 for y in range(max(cursor_pos[1] - cursor_size, 0), min(cursor_pos[1] + cursor_size + 1, height)):
-                    field[x, y] = dropping.unsafe_value()(field)
+                    world[x, y] = dropping.unsafe_value()(world)
 
-        # update field
+        # update world
         region = (0, 0, width, height)
 
         @parameter
@@ -100,20 +100,20 @@ def main():
             region[1] = camera.view_pos_y - regioning_pad[1]
             region[3] = camera.view_pos_y + camera.view_size_y + regioning_pad[1]
         
-        field.update(keyboard, region)
+        world.update(keyboard, region)
 
         # update camera
         camera.update(keyboard)
 
         if step:
             step = False
-            field.run = False
+            world.run = False
 
-        # draw field
-        camera.draw(field, renderer)
+        # draw world
+        camera.draw(world, renderer)
 
         # draw cursor
-        var sp = selected(field)
+        var sp = selected(world)
         renderer.set_color(Color(sp.r, sp.g, sp.b, 127))
         renderer.set_blendmode(BlendMode.ADD)
         renderer.draw_rect(Rect(mouse_pos[0] - cursor_size*camera.view_scale, mouse_pos[1] - cursor_size*camera.view_scale, cursor_size*camera.view_scale*2, cursor_size*camera.view_scale*2))
