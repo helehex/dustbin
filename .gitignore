@@ -1,2 +1,6 @@
-# ignore environments
-.magic
+# ignore dot files
+**/.**
+!.git*
+
+# ignore app
+dustbin.bin

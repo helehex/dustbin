@@ -3,8 +3,10 @@
 # x--------------------------------------------------------------------------x #
 
 from algorithm import parallelize
-from sdl import Keyboard, KeyCode, Renderer, Texture, TexturePixelFormat, TextureAccess
+from game import Renderer, Texture, KeyState
 from world import World, width, height
+
+import sdl
 
 alias max_view_scale = 16
 alias min_view_scale = 1
@@ -22,78 +24,105 @@ struct Camera:
     var view_pos_y: Int
     var texture: Texture
 
-    fn __init__(inout self, renderer: Renderer) raises:
+    fn __init__(out self, renderer: Renderer) raises:
         self.view_scale = 2
-        var screen_size = renderer.get_output_size()
-        self.view_size_x = screen_size[0] // self.view_scale
-        self.view_size_y = screen_size[1] // self.view_scale
+        var screen_size = (Int32(), Int32())
+        sdl.get_render_output_size(
+            renderer,
+            UnsafePointer(to=screen_size[0]),
+            UnsafePointer(to=screen_size[1]),
+        )
+        self.view_size_x = Int(screen_size[0] // self.view_scale)
+        self.view_size_y = Int(screen_size[1] // self.view_scale)
         self.view_pos_x = 0
         self.view_pos_y = height - self.view_size_y
-        self.texture = Texture(renderer, TexturePixelFormat.RGBA32, TextureAccess.STREAMING, self.view_size_x, self.view_size_y)
+        self.texture = sdl.create_texture(
+            renderer,
+            sdl.PixelFormat.PIXELFORMAT_RGBA32,
+            sdl.TextureAccess.TEXTUREACCESS_STREAMING,
+            self.view_size_x,
+            self.view_size_y,
+        )
 
-    fn set_scale(inout self, owned scale: Int, renderer: Renderer) raises:
+    fn set_scale(mut self, var scale: Int, renderer: Renderer) raises:
         scale = min(max(min_view_scale, scale), max_view_scale)
         if scale != self.view_scale:
-            self.view_pos_x += (self.view_size_x // 2)
-            self.view_pos_y += (self.view_size_y // 2)
+            self.view_pos_x += self.view_size_x // 2
+            self.view_pos_y += self.view_size_y // 2
             self.view_scale = scale
             self.on_size_changed(renderer)
-            self.view_pos_x -= (self.view_size_x // 2)
-            self.view_pos_y -= (self.view_size_y // 2)
-    
-    fn on_size_changed(inout self, renderer: Renderer) raises:
-        var screen_size = renderer.get_output_size()
-        self.view_size_x = screen_size[0] // self.view_scale
-        self.view_size_y = screen_size[1] // self.view_scale
+            self.view_pos_x -= self.view_size_x // 2
+            self.view_pos_y -= self.view_size_y // 2
+
+    fn on_size_changed(mut self, renderer: Renderer) raises:
+        screen_width = Int32()
+        screen_height = Int32()
+        sdl.get_render_output_size(
+            renderer,
+            UnsafePointer(to=screen_width),
+            UnsafePointer(to=screen_height),
+        )
+        self.view_size_x = Int(screen_width // self.view_scale)
+        self.view_size_y = Int(screen_height // self.view_scale)
 
         # TODO: for some reason, doing the obvious thing here doesn't work...
-        var texture = Texture(renderer, TexturePixelFormat.RGBA32, TextureAccess.STREAMING, self.view_size_x, self.view_size_y)
-        self.texture = texture^
+        self.texture = sdl.create_texture(
+            renderer,
+            sdl.PixelFormat.PIXELFORMAT_RGBA32,
+            sdl.TextureAccess.TEXTUREACCESS_STREAMING,
+            self.view_size_x,
+            self.view_size_y,
+        )
 
     @always_inline
-    fn view2world(self, x: Int, y: Int) -> (Int, Int):
+    fn view2world(self, x: Int, y: Int) -> Tuple[Int, Int]:
         return (x + self.view_pos_x) % width, (y + self.view_pos_y) % height
 
-    fn update(inout self, keyboard: Keyboard):
+    fn update(mut self, key_state: KeyState):
         # move camera
         var mevement_speed = (10 // self.view_scale) + 1
-        if keyboard.state[KeyCode.W]:
+        if key_state[sdl.Scancode.SCANCODE_W]:
             self.view_pos_y -= mevement_speed
-        if keyboard.state[KeyCode.A]:
+        if key_state[sdl.Scancode.SCANCODE_A]:
             self.view_pos_x -= mevement_speed
-        if keyboard.state[KeyCode.S]:
+        if key_state[sdl.Scancode.SCANCODE_S]:
             self.view_pos_y += mevement_speed
-        if keyboard.state[KeyCode.D]:
+        if key_state[sdl.Scancode.SCANCODE_D]:
             self.view_pos_x += mevement_speed
 
-    fn draw(self, field: World, renderer: Renderer) raises:
-        alias chunk_size = 128
-        var pixels = self.texture.lock()._ptr.bitcast[ColorRGBA32]()
-        
-        @parameter
-        fn chunk(chunk: Int):
-            var start = chunk * chunk_size
-            var end = min(start + chunk_size, self.view_size_y)
-            var ptr = pixels + (start * self.view_size_x)
-            for y in range(start, end):
-                for x in range(self.view_size_x):
-                    var xy = self.view2world(x, y)
-                    var particle = field[xy[0], xy[1]]
-                    ptr[] = ColorRGBA32(particle.r, particle.g, particle.b, 0)
-                    ptr += 1
+    fn draw(self, world: World, renderer: Renderer) raises:
+        var _pixels = UnsafePointer[NoneType, MutAnyOrigin]()
+        var pitch = Int32()
+        sdl.lock_texture(
+            self.texture,
+            UnsafePointer[sdl.Rect, ImmutAnyOrigin](),
+            UnsafePointer(to=_pixels),
+            UnsafePointer(to=pitch),
+        )
+        var pixels = _pixels.bitcast[ColorRGBA32]()
 
-        parallelize[chunk]((self.view_size_y // chunk_size) + 1)
+        for y in range(self.view_size_y):
+            for x in range(self.view_size_x):
+                var pos = self.view2world(x, y)
+                particle = world[pos[0], pos[1]]
+                pixels[x + y * self.view_size_x] = ColorRGBA32(
+                    particle.r, particle.g, particle.b, 255
+                )
 
-        _ = pixels
-        self.texture.unlock()
-        renderer.copy(self.texture, None)
+        sdl.unlock_texture(self.texture)
+        sdl.render_texture(
+            renderer,
+            self.texture,
+            UnsafePointer[sdl.FRect, ImmutAnyOrigin](),
+            UnsafePointer[sdl.FRect, ImmutAnyOrigin](),
+        )
 
 
 # +----------------------------------------------------------------------------------------------+ #
 # | Colors
 # +----------------------------------------------------------------------------------------------+ #
 #
-@value
+@fieldwise_init
 @register_passable("trivial")
 struct ColorRGB24:
     var r: UInt8
@@ -101,7 +130,7 @@ struct ColorRGB24:
     var b: UInt8
 
 
-@value
+@fieldwise_init
 @register_passable("trivial")
 struct ColorRGBA32:
     var r: UInt8

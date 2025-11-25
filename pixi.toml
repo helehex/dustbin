@@ -1,0 +1,16 @@
+[workspace]
+preview = ["pixi-build"]
+authors = ["helehex <helehex@gmail.com>"]
+channels = ["conda-forge", "https://conda.modular.com/max"]
+description = "Falling sand simulation."
+name = "dustbin"
+platforms = ["linux-64", "linux-aarch64", "osx-arm64"]
+version = "0.1.0"
+
+[tasks]
+game = "mojo src/game.mojo"
+build = "mojo build src/game.mojo -o dustbin.bin"
+
+[dependencies]
+mojo = "*"
+sdl-mojo = { git = "https://github.com/MojoGameDevs/sdl-mojo.git", branch = "stable" }

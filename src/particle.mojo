@@ -5,18 +5,26 @@
 from os import abort
 from world import World
 
-alias update_particle = List(update_space, update_fire, update_vapor, update_dust, update_water, update_sand, update_stone)
+alias update_particle = List(
+    update_space,
+    update_fire,
+    update_vapor,
+    update_dust,
+    update_water,
+    update_sand,
+    update_stone,
+)
 
 alias fire_decay = 16
-alias vapor2water_prb = 1<<14
-alias water2vapor_prb = 1<<14
+alias vapor2water_prb = 1 << 14
+alias water2vapor_prb = 1 << 14
 
 
 # +----------------------------------------------------------------------------------------------+ #
 # | Particle
 # +----------------------------------------------------------------------------------------------+ #
 #
-@value
+@fieldwise_init
 @register_passable("trivial")
 struct Particle:
     alias skip_flag = 0b00000001
@@ -30,7 +38,10 @@ struct Particle:
     var b: UInt8
 
     @always_inline
-    fn update[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout self, inout world: World):
+    fn update[
+        origin: MutOrigin, //,
+        neighbor: fn (Int, Int) capturing -> ref [origin]Particle,
+    ](mut self, mut world: World):
         # TODO: Cannot use update_particle[self.type] directly
         @parameter
         for i in range(1, len(update_particle)):
@@ -46,19 +57,21 @@ struct Particle:
     @always_inline
     fn __getattr__(self, name: StringLiteral) -> Bool:
         if name == "skip":
-            return bool(self.flags & self.skip_flag)
+            return Bool(self.flags & self.skip_flag)
         else:
-            return bool(abort("invalid particle attribute"))
+            return Bool(abort("invalid particle attribute"))
 
     @always_inline
-    fn __setattr__(inout self, name: StringLiteral, attr: Bool):
+    fn __setattr__(mut self, name: StringLiteral, attr: Bool):
         if name == "skip":
-            self.flags = (self.flags & ~self.skip_flag) | (attr * self.skip_flag)
+            self.flags = (self.flags & ~self.skip_flag) | (
+                self.skip_flag * Int(attr)
+            )
         else:
             abort("invalid particle attribute")
 
     # @always_inline
-    # fn __setattr__(inout self, name: StringLiteral, attr: UInt8):
+    # fn __setattr__(mut  self, name: StringLiteral, attr: UInt8):
     #     if name == "skip":
     #         self.flags = (self.flags & ~self.skip_flag) | attr
     #     else:
@@ -79,12 +92,15 @@ fn border() -> Particle:
 # +----------------------------------------------------------------------------------------------+ #
 #
 @always_inline
-fn space(inout world: World, skip: Bool = False) -> Particle:
+fn space(mut world: World, skip: Bool = False) -> Particle:
     return Particle(world.skip & Particle.skip_flag, 0, 0, 0, 14, 10, 8)
 
 
 @always_inline
-fn update_space[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout particle: Particle, inout world: World):
+fn update_space[
+    origin: MutOrigin, //,
+    neighbor: fn (Int, Int) capturing [_] -> ref [origin]Particle,
+](mut particle: Particle, mut world: World):
     pass
 
 
@@ -93,12 +109,15 @@ fn update_space[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturi
 # +----------------------------------------------------------------------------------------------+ #
 #
 @always_inline
-fn fire(inout world: World, skip: Bool = False) -> Particle:
+fn fire(mut world: World, skip: Bool = False) -> Particle:
     return Particle(world.skip & Particle.skip_flag, 1, 0, 0, 240, 160, 80)
 
 
 @always_inline
-fn update_fire[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout particle: Particle, inout world: World):
+fn update_fire[
+    origin: MutOrigin, //,
+    neighbor: fn (Int, Int) capturing [_] -> ref [origin]Particle,
+](mut particle: Particle, mut world: World):
     if world.rand_prb[fire_decay]():
         particle.r = (particle.r // 2) + 20
         particle.g = (particle.g // 6) + 20
@@ -106,7 +125,7 @@ fn update_fire[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturin
         if particle.r == 40:
             particle = space(world)
 
-    var xo = world.rand_bal[1]() * world.rand_prb[4]()
+    var xo = world.rand_bal[1]() * Int(world.rand_prb[4]())
     var yo = -(world.rand() % 2)
 
     if world.denser(particle, neighbor(xo, yo)):
@@ -118,18 +137,21 @@ fn update_fire[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturin
 # +----------------------------------------------------------------------------------------------+ #
 #
 @always_inline
-fn vapor(inout world: World, skip: Bool = False) -> Particle:
+fn vapor(mut world: World, skip: Bool = False) -> Particle:
     return Particle(world.skip & Particle.skip_flag, 2, 0, 0, 20, 40, 80)
 
 
 @always_inline
-fn update_vapor[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout particle: Particle, inout world: World):
+fn update_vapor[
+    origin: MutOrigin, //,
+    neighbor: fn (Int, Int) capturing [_] -> ref [origin]Particle,
+](mut particle: Particle, mut world: World):
     if world.rand_prb[vapor2water_prb]():
         particle = water(world)
         return
 
     var xo = world.rand_bal[1]()
-    var yo = world.rand_bal[1]() - world.rand_prb[4]()
+    var yo = world.rand_bal[1]() - Int(world.rand_prb[4]())
 
     if world.denser(particle, neighbor(xo, yo)):
         world.swap(particle, neighbor(xo, yo))
@@ -140,13 +162,26 @@ fn update_vapor[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturi
 # +----------------------------------------------------------------------------------------------+ #
 #
 @always_inline
-fn dust(inout world: World, skip: Bool = False) -> Particle:
-    return Particle(world.skip & Particle.skip_flag, 3, 0, 0, world.rand_range[160, 180](), world.rand_range[140, 160](), 120)
+fn dust(mut world: World, skip: Bool = False) -> Particle:
+    return Particle(
+        world.skip & Particle.skip_flag,
+        3,
+        0,
+        0,
+        world.rand_range[160, 180](),
+        world.rand_range[140, 160](),
+        120,
+    )
 
 
 @always_inline
-fn update_dust[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout particle: Particle, inout world: World):
-    if (world.denser(neighbor(0, -1), particle) and world.rand_prb[8]()) or (neighbor(0, 1).type == 4 and world.rand_prb[32]()):
+fn update_dust[
+    origin: MutOrigin, //,
+    neighbor: fn (Int, Int) capturing [_] -> ref [origin]Particle,
+](mut particle: Particle, mut world: World):
+    if (world.denser(neighbor(0, -1), particle) and world.rand_prb[8]()) or (
+        neighbor(0, 1).type == 4 and world.rand_prb[32]()
+    ):
         particle = sand(world)
 
     var fx = world.rand_dir()
@@ -157,7 +192,7 @@ fn update_dust[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturin
 
     if not world.rand_prb[4]():
         return
-    
+
     if world.denser(particle, neighbor(0, 1)):
         world.swap(particle, neighbor(0, 1))
         return
@@ -166,8 +201,8 @@ fn update_dust[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturin
 
     if world.denser(particle, neighbor(xo, 1)):
         world.swap(particle, neighbor(xo, 1))
-    elif world.denser(particle, neighbor(xo*2, 2)):
-        world.swap(particle, neighbor(xo*2, 2))
+    elif world.denser(particle, neighbor(xo * 2, 2)):
+        world.swap(particle, neighbor(xo * 2, 2))
 
 
 # +----------------------------------------------------------------------------------------------+ #
@@ -175,13 +210,19 @@ fn update_dust[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturin
 # +----------------------------------------------------------------------------------------------+ #
 #
 @always_inline
-fn water(inout world: World, skip: Bool = False) -> Particle:
+fn water(mut world: World, skip: Bool = False) -> Particle:
     return Particle(world.skip & Particle.skip_flag, 4, 0, 0, 40, 80, 180)
 
 
 @always_inline
-fn update_water[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout particle: Particle, inout world: World):
-    if world.denser(particle, neighbor(0, -1)) and world.rand_prb[water2vapor_prb]():
+fn update_water[
+    origin: MutOrigin, //,
+    neighbor: fn (Int, Int) capturing [_] -> ref [origin]Particle,
+](mut particle: Particle, mut world: World):
+    if (
+        world.denser(particle, neighbor(0, -1))
+        and world.rand_prb[water2vapor_prb]()
+    ):
         particle = vapor(world)
         return
 
@@ -189,7 +230,7 @@ fn update_water[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturi
         world.swap(particle, neighbor(0, 1))
         return
 
-    var xo = int(particle.data[0]) or world.rand_bal[3]()
+    var xo = Int(particle.data[0]) or world.rand_bal[3]()
 
     if world.denser(particle, neighbor(xo, 1)):
         particle.data[0] = xo
@@ -215,12 +256,23 @@ fn update_water[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturi
 # +----------------------------------------------------------------------------------------------+ #
 #
 @always_inline
-fn sand(inout world: World, skip: Bool = False) -> Particle:
-    return Particle(world.skip & Particle.skip_flag, 5, 0, 0, world.rand_range[180, 200](), world.rand_range[160, 180](), 60)
+fn sand(mut world: World, skip: Bool = False) -> Particle:
+    return Particle(
+        world.skip & Particle.skip_flag,
+        5,
+        0,
+        0,
+        world.rand_range[180, 200](),
+        world.rand_range[160, 180](),
+        60,
+    )
 
 
 @always_inline
-fn update_sand[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout particle: Particle, inout world: World):
+fn update_sand[
+    origin: MutOrigin, //,
+    neighbor: fn (Int, Int) capturing [_] -> ref [origin]Particle,
+](mut particle: Particle, mut world: World):
     if world.empty(neighbor(0, 1)):
         world.swap(particle, neighbor(0, 1))
         return
@@ -231,8 +283,8 @@ fn update_sand[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturin
 
     if world.denser(particle, neighbor(xo, 1)):
         world.swap(particle, neighbor(xo, 1))
-    elif world.denser(particle, neighbor(xo*2, 2)):
-        world.swap(particle, neighbor(xo*2, 2))
+    elif world.denser(particle, neighbor(xo * 2, 2)):
+        world.swap(particle, neighbor(xo * 2, 2))
 
 
 # +----------------------------------------------------------------------------------------------+ #
@@ -240,12 +292,23 @@ fn update_sand[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturin
 # +----------------------------------------------------------------------------------------------+ #
 #
 @always_inline
-fn stone(inout world: World, skip: Bool = False) -> Particle:
-    return Particle(world.skip & Particle.skip_flag, 6, 0, 0, world.rand_range[100, 120](), world.rand_range[100, 120](), world.rand_range[100, 120]())
+fn stone(mut world: World, skip: Bool = False) -> Particle:
+    return Particle(
+        world.skip & Particle.skip_flag,
+        6,
+        0,
+        0,
+        world.rand_range[100, 120](),
+        world.rand_range[100, 120](),
+        world.rand_range[100, 120](),
+    )
 
 
 @always_inline
-fn update_stone[lif: AnyLifetime[True].type, //, neighbor: fn (Int, Int) capturing -> ref[lif] Particle](inout particle: Particle, inout world: World):
+fn update_stone[
+    origin: MutOrigin, //,
+    neighbor: fn (Int, Int) capturing [_] -> ref [origin]Particle,
+](mut particle: Particle, mut world: World):
     var ox = world.rand_dir()
 
     if world.same(particle, neighbor(ox, 0)):
